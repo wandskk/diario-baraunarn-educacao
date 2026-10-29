@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Educação no Diário Oficial de Baraúna</title>
+<meta name="description" content="Busca de leis, decretos, portarias, editais e contratos de educação publicados no Diário Oficial de Baraúna/RN, de 2010 a hoje.">
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --txt: #1b2430; --mut: #5b6675; --bord: #dde2e8;
+    --pri: #0b5cad; --pri-txt: #fff; --chip: #eaf1f9;
+    --leis: #6d3fc0; --decretos: #b4570a; --portarias: #0b7a5a; --editais: #b3263e; --contratos_licitacoes: #3a5f8f; --outros: #5b6675;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #11161c; --card: #1a212a; --txt: #e6ebf1; --mut: #98a4b3; --bord: #2c3642;
+            --pri: #5aa2ee; --pri-txt: #0c1117; --chip: #223142;
+            --leis: #b79af0; --decretos: #f0a45f; --portarias: #4fd1a5; --editais: #f08a9b; --contratos_licitacoes: #8fb4e3; --outros: #98a4b3; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 48px; }
+  header { padding: 28px 0 8px; }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.25; }
+  header p { margin: 0; color: var(--mut); }
+  .busca { display: flex; gap: 8px; margin: 18px 0 12px; }
+  input[type=search], select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--bord); border-radius: 8px; padding: 10px 12px; }
+  input[type=search] { flex: 1; min-width: 0; }
+  :focus-visible { outline: 3px solid var(--pri); outline-offset: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .chip { font: inherit; cursor: pointer; border: 1px solid var(--bord); background: var(--card); color: var(--txt); border-radius: 999px; padding: 6px 12px; }
+  .chip b { font-weight: 600; }
+  .chip small { color: var(--mut); margin-left: 4px; }
+  .chip[aria-pressed=true] { background: var(--pri); border-color: var(--pri); color: var(--pri-txt); }
+  .chip[aria-pressed=true] small { color: inherit; opacity: .85; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
+  .filtros label { color: var(--mut); font-size: .9rem; }
+  .status { color: var(--mut); margin: 12px 0; font-size: .95rem; }
+  ul.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  li.doc { background: var(--card); border: 1px solid var(--bord); border-radius: 10px; padding: 12px 14px; }
+  .tag { display: inline-block; font-size: .78rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 6px; padding: 1px 7px; margin-bottom: 6px; }
+  .doc h2 { font-size: 1rem; margin: 0 0 4px; line-height: 1.4; font-weight: 600; }
+  .meta { color: var(--mut); font-size: .88rem; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .acoes a { text-decoration: none; border-radius: 8px; padding: 6px 12px; font-size: .92rem; border: 1px solid var(--pri); color: var(--pri); }
+  .acoes a.prim { background: var(--pri); color: var(--pri-txt); }
+  .pag { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; }
+  .pag button { font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--bord); background: var(--card); color: var(--txt); }
+  .pag button:disabled { opacity: .45; cursor: default; }
+  mark { background: #ffe58a; color: #1b2430; border-radius: 3px; padding: 0 1px; }
+  footer { margin-top: 36px; color: var(--mut); font-size: .85rem; border-top: 1px solid var(--bord); padding-top: 14px; }
+  footer a { color: var(--pri); }
+  @media (max-width: 520px) { .busca { flex-direction: column; } h1 { font-size: 1.35rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Educação no Diário Oficial de Baraúna/RN</h1>
+    <p id="resumo">Carregando índice…</p>
+  </header>
+
+  <form class="busca" role="search" onsubmit="return false">
+    <input id="q" type="search" placeholder="Buscar por título, número, órgão… (ex.: portaria professor 2023)" aria-label="Buscar documentos" autocomplete="off">
+  </form>
+
+  <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+
+  <div class="filtros">
+    <label for="ano">Ano</label>
+    <select id="ano"><option value="">Todos</option></select>
+    <label for="orgao">Órgão</label>
+    <select id="orgao"><option value="">Todos</option></select>
+    <label for="ordem">Ordenar</label>
+    <select id="ordem">
+      <option value="recente">Mais recentes</option>
+      <option value="antiga">Mais antigos</option>
+    </select>
+  </div>
+
+  <p class="status" id="status" aria-live="polite"></p>
+  <ul class="lista" id="lista"></ul>
+  <nav class="pag" id="pag" aria-label="Paginação"></nav>
+
+  <footer>
+    Fonte: <a href="https://www.diariomunicipal.com.br/femurn/" rel="noopener">Diário Oficial dos Municípios (FEMURN)</a>, entidade Baraúna/RN.
+    Os documentos foram selecionados por palavras-chave de educação (educação, escola, FUNDEB, professor, merenda, creche e similares);
+    o tipo é identificado pelo título. Os PDFs são edições inteiras do Diário, abertas diretamente no site oficial.
+    <span id="gerado"></span>
+  </footer>
+</div>
+
+<script>
+const POR_PAGINA = 40;
+const BASE = "https://www.diariomunicipal.com.br/femurn";
+const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const el = id => document.getElementById(id);
+
+let DOCS = [], TIPOS = {}, estado = { q: "", tipo: "", ano: "", orgao: "", ordem: "recente", pag: 1 };
+
+function lerHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  for (const k of ["q", "tipo", "ano", "orgao", "ordem"]) if (p.has(k)) estado[k] = p.get(k);
+  estado.pag = parseInt(p.get("pag") || "1", 10) || 1;
+}
+function gravarHash() {
+  const p = new URLSearchParams();
+  for (const k of ["q", "tipo", "ano", "orgao"]) if (estado[k]) p.set(k, estado[k]);
+  if (estado.ordem !== "recente") p.set("ordem", estado.ordem);
+  if (estado.pag > 1) p.set("pag", estado.pag);
+  history.replaceState(null, "", p.toString() ? "#" + p : location.pathname);
+}
+const dataBR = iso => iso.split("-").reverse().join("/");
+
+function filtrar(ignorarTipo) {
+  const termos = norm(estado.q).split(/\s+/).filter(Boolean);
+  return DOCS.filter(d =>
+    (ignorarTipo || !estado.tipo || d.k === estado.tipo) &&
+    (!estado.ano || d.d.startsWith(estado.ano)) &&
+    (!estado.orgao || d.o === estado.orgao) &&
+    termos.every(t => d._n.includes(t)));
+}
+
+function destacar(texto, termos) {
+  let out = esc(texto);
+  if (!termos.length) return out;
+  const n = norm(texto);
+  // marca por posição no texto normalizado (mesmo tamanho do original sem acentos combinados)
+  if (n.length !== texto.length) return out;
+  const marcas = [];
+  for (const t of termos) { let i = n.indexOf(t); while (i >= 0) { marcas.push([i, i + t.length]); i = n.indexOf(t, i + t.length); } }
+  if (!marcas.length) return out;
+  marcas.sort((a, b) => a[0] - b[0]);
+  const fund = []; for (const m of marcas) { const u = fund[fund.length - 1]; if (u && m[0] <= u[1]) u[1] = Math.max(u[1], m[1]); else fund.push(m.slice()); }
+  let r = "", pos = 0;
+  for (const [a, b] of fund) { r += esc(texto.slice(pos, a)) + "<mark>" + esc(texto.slice(a, b)) + "</mark>"; pos = b; }
+  return r + esc(texto.slice(pos));
+}
+
+function render() {
+  const termos = norm(estado.q).split(/\s+/).filter(Boolean);
+  const base = filtrar(true);
+  const cont = {}; base.forEach(d => cont[d.k] = (cont[d.k] || 0) + 1);
+  el("chips").innerHTML =
+    `<button class="chip" aria-pressed="${!estado.tipo}" data-t=""><b>Todos</b><small>${base.length}</small></button>` +
+    Object.entries(TIPOS).map(([k, nome]) =>
+      `<button class="chip" aria-pressed="${estado.tipo === k}" data-t="${k}"><b>${nome}</b><small>${cont[k] || 0}</small></button>`).join("");
+
+  const res = base.filter(d => !estado.tipo || d.k === estado.tipo);
+  res.sort((a, b) => (estado.ordem === "recente" ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d)) || a.c.localeCompare(b.c));
+  const total = res.length, paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  estado.pag = Math.min(Math.max(1, estado.pag), paginas);
+  const fatia = res.slice((estado.pag - 1) * POR_PAGINA, estado.pag * POR_PAGINA);
+
+  el("status").textContent = total ? `${total.toLocaleString("pt-BR")} documento${total > 1 ? "s" : ""} encontrado${total > 1 ? "s" : ""}` : "Nenhum documento encontrado. Tente menos palavras ou limpe os filtros.";
+  el("lista").innerHTML = fatia.map(d => `
+    <li class="doc">
+      <span class="tag" style="color:var(--${d.k})">${esc(TIPOS[d.k] || d.k)}</span>
+      <h2>${destacar(d.t, termos)}</h2>
+      <div class="meta">${dataBR(d.d)} · Edição ${esc(d.e)} · ${esc(d.o)}</div>
+      <div class="acoes">
+        <a class="prim" href="${BASE}/download/edicao/${d.c}" target="_blank" rel="noopener">Baixar PDF da edição</a>
+        <a href="${BASE}/materia/${d.c}" target="_blank" rel="noopener">Ver matéria no site oficial</a>
+      </div>
+    </li>`).join("");
+  el("pag").innerHTML = paginas > 1
+    ? `<button ${estado.pag === 1 ? "disabled" : ""} data-p="${estado.pag - 1}">← Anterior</button><span>Página ${estado.pag} de ${paginas}</span><button ${estado.pag === paginas ? "disabled" : ""} data-p="${estado.pag + 1}">Próxima →</button>` : "";
+  gravarHash();
+}
+
+function iniciar(json) {
+  TIPOS = json.tipos; DOCS = json.docs;
+  DOCS.forEach(d => d._n = norm(d.t + " " + d.o + " " + d.e + " " + d.d + " " + dataBR(d.d) + " " + TIPOS[d.k]));
+  const anos = [...new Set(DOCS.map(d => d.d.slice(0, 4)))].sort().reverse();
+  el("ano").innerHTML += anos.map(a => `<option>${a}</option>`).join("");
+  const orgaos = [...new Set(DOCS.map(d => d.o))].sort((a, b) => a.localeCompare(b, "pt"));
+  el("orgao").innerHTML += orgaos.map(o => `<option>${esc(o)}</option>`).join("");
+  const menor = DOCS.reduce((m, d) => d.d < m ? d.d : m, "9999"), maior = DOCS.reduce((m, d) => d.d > m ? d.d : m, "0");
+  el("resumo").textContent = `${DOCS.length.toLocaleString("pt-BR")} documentos de ${dataBR(menor).slice(3)} a ${dataBR(maior).slice(3)} · leis, decretos, portarias, editais, contratos e licitações`;
+  el("gerado").textContent = "Índice atualizado em " + dataBR(json.gerado) + ".";
+  lerHash();
+  el("q").value = estado.q; el("ano").value = estado.ano; el("orgao").value = estado.orgao; el("ordem").value = estado.ordem;
+  render();
+}
+
+el("q").addEventListener("input", e => { estado.q = e.target.value; estado.pag = 1; render(); });
+for (const [id, k] of [["ano", "ano"], ["orgao", "orgao"], ["ordem", "ordem"]])
+  el(id).addEventListener("change", e => { estado[k] = e.target.value; estado.pag = 1; render(); });
+el("chips").addEventListener("click", e => { const b = e.target.closest("button"); if (b) { estado.tipo = b.dataset.t; estado.pag = 1; render(); } });
+el("pag").addEventListener("click", e => { const b = e.target.closest("button"); if (b && !b.disabled) { estado.pag = +b.dataset.p; render(); scrollTo({ top: 0 }); } });
+
+fetch("dados.json").then(r => r.json()).then(iniciar).catch(() => { el("resumo").textContent = "Não foi possível carregar o índice."; });
+</script>
+</body>
+</html>
