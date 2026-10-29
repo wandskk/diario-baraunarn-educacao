@@ -9,6 +9,7 @@ Uso:
 """
 import argparse, csv, datetime as dt, html, os, re, sqlite3, sys, time
 import urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 BASE = "https://www.diariomunicipal.com.br/femurn"
 ENTIDADE = "324"
@@ -19,7 +20,7 @@ PALAVRAS = ["educação", "escola", "escolar", "FUNDEB", "professor", "magistér
             "creche", "merenda", "pedagógico", "Secretaria Municipal da Educação",
             "Conselho Municipal de Educação", "PNAE", "PNATE", "alfabetização", "estudante", "aluno"]
 RAIZ = os.path.dirname(os.path.abspath(__file__))
-SAIDA = os.path.join(RAIZ, "saida")
+SAIDA = os.environ.get("DIARIO_SAIDA") or os.path.join(RAIZ, "saida")
 
 
 def get(url, tentativas=5):
@@ -113,7 +114,7 @@ def indexar(c, faixa):
 
 def nome_pdf(ed, iso):
     """AAAA-MM-DD_edicao-NNNN.pdf: ordena por data e dá para buscar por data ou nº da edição."""
-    return f"{iso}_edicao-{(ed or 'sn').zfill(4)}.pdf"
+    return f"{iso}_edicao-{ed.zfill(4) if ed else 'sem-numero'}.pdf"
 
 
 # pasta -> padrão no título; vence o termo que aparece primeiro (ex.: "TERMO DE CONTRATO ... Lei 14.133" é contrato)
@@ -161,16 +162,17 @@ def renomear(c):
     """Padroniza nomes antigos (edicao-NNNN-AAAA-MM-DD.pdf) e passa a guardar o caminho relativo a saida/."""
     for ed, iso in c.execute("SELECT edicao,data_iso FROM edicoes WHERE status='ok'").fetchall():
         novo = caminho(ed, iso)
-        antigo = os.path.join(os.path.dirname(novo), f"edicao-{ed}-{iso}.pdf")
-        if os.path.exists(antigo) and not os.path.exists(novo):
-            os.rename(antigo, novo)
-            print("renomeado:", os.path.basename(antigo), "->", os.path.basename(novo))
+        for nome_antigo in (f"edicao-{ed}-{iso}.pdf", f"{iso}_edicao-00sn.pdf"):
+            antigo = os.path.join(os.path.dirname(novo), nome_antigo)
+            if os.path.exists(antigo) and not os.path.exists(novo):
+                os.rename(antigo, novo)
+                print("renomeado:", os.path.basename(antigo), "->", os.path.basename(novo))
         c.execute("UPDATE edicoes SET arquivo=? WHERE edicao=? AND data_iso=?",
                   (os.path.relpath(novo, SAIDA).replace(os.sep, "/"), ed, iso))
     c.commit()
 
 
-def baixar(c, faixa):
+def baixar(c, faixa, paralelo=4):
     # 1 PDF por edição; usa o código de uma matéria da edição como referência
     c.execute("""INSERT OR IGNORE INTO edicoes(edicao,data_iso,cod_ref,status)
                  SELECT edicao,data_iso,MIN(cod),'pendente' FROM materias WHERE tem_pdf=1 GROUP BY edicao,data_iso""")
@@ -178,25 +180,35 @@ def baixar(c, faixa):
     lim = f"{faixa[0]}-01-01", f"{faixa[-1]}-12-31"
     fila = c.execute("SELECT edicao,data_iso,cod_ref FROM edicoes WHERE status!='ok' AND data_iso BETWEEN ? AND ? "
                      "ORDER BY data_iso", lim).fetchall()
-    print("edições na fila:", len(fila), flush=True)
-    for i, (ed, iso, cod) in enumerate(fila, 1):
-        pasta = os.path.join(SAIDA, "edicoes_pdf", iso[:4])
-        os.makedirs(pasta, exist_ok=True)
-        arq = os.path.join(pasta, nome_pdf(ed, iso))
+    print(f"edições na fila: {len(fila)} (simultâneos: {paralelo})", flush=True)
+
+    def um(item):
+        ed, iso, cod = item
+        arq = caminho(ed, iso)
+        os.makedirs(os.path.dirname(arq), exist_ok=True)
         try:
             corpo, h = get(f"{BASE}/download/edicao/{cod}")
             if not corpo.startswith(b"%PDF"):
                 raise ValueError("resposta não é PDF (" + h.get("Content-Type", "?") + ")")
-            with open(arq, "wb") as f:
+            with open(arq + ".parte", "wb") as f:
                 f.write(corpo)
-            c.execute("UPDATE edicoes SET arquivo=?,status='ok',erro=NULL WHERE edicao=? AND data_iso=?",
-                      (os.path.relpath(arq, SAIDA).replace(os.sep, "/"), ed, iso))
-            print(f"[{i}/{len(fila)}] ok {os.path.basename(arq)} ({len(corpo)//1024} KB)", flush=True)
+            os.replace(arq + ".parte", arq)  # só aparece com o nome final quando está completo
+            time.sleep(PAUSA)
+            return item, arq, len(corpo), None
         except Exception as e:
-            c.execute("UPDATE edicoes SET status='erro',erro=? WHERE edicao=? AND data_iso=?", (str(e), ed, iso))
-            print(f"[{i}/{len(fila)}] ERRO {ed} {iso}: {e}", flush=True)
-        c.commit()
-        time.sleep(PAUSA)
+            return item, arq, 0, str(e)
+
+    with ThreadPoolExecutor(max_workers=paralelo) as ex:
+        for i, (item, arq, tam, erro) in enumerate(ex.map(um, fila), 1):
+            ed, iso, _ = item
+            if erro:
+                c.execute("UPDATE edicoes SET status='erro',erro=? WHERE edicao=? AND data_iso=?", (erro, ed, iso))
+                print(f"[{i}/{len(fila)}] ERRO {ed} {iso}: {erro}", flush=True)
+            else:
+                c.execute("UPDATE edicoes SET arquivo=?,status='ok',erro=NULL WHERE edicao=? AND data_iso=?",
+                          (os.path.relpath(arq, SAIDA).replace(os.sep, "/"), ed, iso))
+                print(f"[{i}/{len(fila)}] ok {os.path.basename(arq)} ({tam//1024} KB)", flush=True)
+            c.commit()
 
 
 def relatorio(c):
@@ -219,7 +231,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["indexar", "baixar", "renomear", "organizar", "relatorio"])
     ap.add_argument("--anos", default=f"{INICIO}-{dt.date.today().year}")
+    ap.add_argument("--paralelo", type=int, default=4, help="downloads simultâneos (baixar)")
     a = ap.parse_args()
     con = db()
     faixa = list(anos(a.anos))
-    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
+    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa, a.paralelo), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
