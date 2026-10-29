@@ -135,7 +135,7 @@ def tipo_de(titulo):
 
 
 def organizar(c):
-    """Copia o PDF de cada edição para por_tipo/<tipo>/<ano>/ (uma cópia por tipo presente na edição).
+    """Liga (link físico) o PDF de cada edição para por_tipo/<tipo>/<ano>/ (uma entrada por tipo presente na edição).
     A pasta edicoes_pdf/ segue como cópia mestre; o git deduplica o conteúdo idêntico."""
     import shutil
     n = 0
@@ -146,7 +146,10 @@ def organizar(c):
         os.makedirs(dest, exist_ok=True)
         novo = os.path.join(dest, os.path.basename(arq))
         if os.path.exists(arq) and not os.path.exists(novo):
-            shutil.copy2(arq, novo)
+            try:
+                os.link(arq, novo)  # link físico: mesmo arquivo, sem ocupar espaço de novo
+            except OSError:
+                shutil.copy2(arq, novo)
             n += 1
     print("cópias criadas:", n)
     for pasta in sorted(os.listdir(os.path.join(SAIDA, "por_tipo"))):
