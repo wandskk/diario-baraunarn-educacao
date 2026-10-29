@@ -4,6 +4,7 @@ Uso:
   python raspar.py indexar [--anos 2010-2026]   # busca por palavras-chave, ano a ano, grava no SQLite
   python raspar.py baixar  [--anos 2010-2026]   # baixa 1 PDF por edição (fila retomável)
   python raspar.py renomear                     # padroniza nomes dos PDFs já baixados
+  python raspar.py organizar                    # copia os PDFs para por_tipo/<leis|decretos|portarias|editais|...>/<ano>/
   python raspar.py relatorio                    # contagens + exporta indice.csv
 """
 import argparse, csv, datetime as dt, html, os, re, sqlite3, sys, time
@@ -115,13 +116,54 @@ def nome_pdf(ed, iso):
     return f"{iso}_edicao-{(ed or 'sn').zfill(4)}.pdf"
 
 
+# pasta -> padrão no título; vence o termo que aparece primeiro (ex.: "TERMO DE CONTRATO ... Lei 14.133" é contrato)
+TIPOS = [("leis", r"\blei(?:s)?\b"), ("decretos", r"\bdecreto"), ("portarias", r"\bportaria"),
+         ("editais", r"\bedital|\beditais"),
+         ("contratos_licitacoes", r"\bcontrato|\baditivo|\blicita|\bdispensa|\bpreg[aã]o|\bhomologa|\badjudica|"
+                                  r"\bchamada p[uú]blica|\btomada de pre|\bconcorr[eê]ncia|\binexigibilidade")]
+
+
+def caminho(ed, iso):
+    return os.path.join(SAIDA, "edicoes_pdf", iso[:4], nome_pdf(ed, iso))
+
+
+
+def tipo_de(titulo):
+    t = titulo.lower()
+    achados = [(m.start(), nome) for nome, pad in TIPOS if (m := re.search(pad, t))]
+    return min(achados)[1] if achados else "outros"
+
+
+def organizar(c):
+    """Copia o PDF de cada edição para por_tipo/<tipo>/<ano>/ (uma cópia por tipo presente na edição).
+    A pasta edicoes_pdf/ segue como cópia mestre; o git deduplica o conteúdo idêntico."""
+    import shutil
+    n = 0
+    for tit, ed, iso in c.execute("""SELECT m.titulo,m.edicao,m.data_iso FROM materias m
+            JOIN edicoes e ON e.edicao=m.edicao AND e.data_iso=m.data_iso WHERE e.status='ok'""").fetchall():
+        arq = caminho(ed, iso)
+        dest = os.path.join(SAIDA, "por_tipo", tipo_de(tit), iso[:4])
+        os.makedirs(dest, exist_ok=True)
+        novo = os.path.join(dest, os.path.basename(arq))
+        if os.path.exists(arq) and not os.path.exists(novo):
+            shutil.copy2(arq, novo)
+            n += 1
+    print("cópias criadas:", n)
+    for pasta in sorted(os.listdir(os.path.join(SAIDA, "por_tipo"))):
+        total = sum(len(f) for _, _, f in os.walk(os.path.join(SAIDA, "por_tipo", pasta)))
+        print(f"  {pasta}: {total} PDFs")
+
+
 def renomear(c):
-    for ed, iso, arq in c.execute("SELECT edicao,data_iso,arquivo FROM edicoes WHERE status='ok'").fetchall():
-        novo = os.path.join(os.path.dirname(arq), nome_pdf(ed, iso))
-        if arq != novo and os.path.exists(arq):
-            os.rename(arq, novo)
-            c.execute("UPDATE edicoes SET arquivo=? WHERE edicao=? AND data_iso=?", (novo, ed, iso))
-            print("renomeado:", os.path.basename(arq), "->", os.path.basename(novo))
+    """Padroniza nomes antigos (edicao-NNNN-AAAA-MM-DD.pdf) e passa a guardar o caminho relativo a saida/."""
+    for ed, iso in c.execute("SELECT edicao,data_iso FROM edicoes WHERE status='ok'").fetchall():
+        novo = caminho(ed, iso)
+        antigo = os.path.join(os.path.dirname(novo), f"edicao-{ed}-{iso}.pdf")
+        if os.path.exists(antigo) and not os.path.exists(novo):
+            os.rename(antigo, novo)
+            print("renomeado:", os.path.basename(antigo), "->", os.path.basename(novo))
+        c.execute("UPDATE edicoes SET arquivo=? WHERE edicao=? AND data_iso=?",
+                  (os.path.relpath(novo, SAIDA).replace(os.sep, "/"), ed, iso))
     c.commit()
 
 
@@ -144,7 +186,8 @@ def baixar(c, faixa):
                 raise ValueError("resposta não é PDF (" + h.get("Content-Type", "?") + ")")
             with open(arq, "wb") as f:
                 f.write(corpo)
-            c.execute("UPDATE edicoes SET arquivo=?,status='ok',erro=NULL WHERE edicao=? AND data_iso=?", (arq, ed, iso))
+            c.execute("UPDATE edicoes SET arquivo=?,status='ok',erro=NULL WHERE edicao=? AND data_iso=?",
+                      (os.path.relpath(arq, SAIDA).replace(os.sep, "/"), ed, iso))
             print(f"[{i}/{len(fila)}] ok {os.path.basename(arq)} ({len(corpo)//1024} KB)", flush=True)
         except Exception as e:
             c.execute("UPDATE edicoes SET status='erro',erro=? WHERE edicao=? AND data_iso=?", (str(e), ed, iso))
@@ -161,19 +204,19 @@ def relatorio(c):
     caminho = os.path.join(SAIDA, "indice.csv")
     with open(caminho, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f, delimiter=";")
-        w.writerow(["cod", "data", "edicao", "titulo", "orgao", "palavras", "pdf_edicao"])
+        w.writerow(["cod", "data", "edicao", "tipo", "titulo", "orgao", "palavras", "pdf_edicao"])
         for r in c.execute("""SELECT m.cod,m.data,m.edicao,m.titulo,m.orgao,m.palavras,COALESCE(e.arquivo,'')
                               FROM materias m LEFT JOIN edicoes e ON e.edicao=m.edicao AND e.data_iso=m.data_iso
                               ORDER BY m.data_iso,m.cod"""):
-            w.writerow(r)
+            w.writerow([r[0], r[1], r[2], tipo_de(r[3]), *r[3:]])
     print("exportado:", caminho)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["indexar", "baixar", "renomear", "relatorio"])
+    ap.add_argument("cmd", choices=["indexar", "baixar", "renomear", "organizar", "relatorio"])
     ap.add_argument("--anos", default=f"{INICIO}-{dt.date.today().year}")
     a = ap.parse_args()
     con = db()
     faixa = list(anos(a.anos))
-    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa), "renomear": lambda: renomear(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
+    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
