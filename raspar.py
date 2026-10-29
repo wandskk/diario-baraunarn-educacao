@@ -3,6 +3,7 @@
 Uso:
   python raspar.py indexar [--anos 2010-2026]   # busca por palavras-chave, ano a ano, grava no SQLite
   python raspar.py baixar  [--anos 2010-2026]   # baixa 1 PDF por edição (fila retomável)
+  python raspar.py renomear                     # padroniza nomes dos PDFs já baixados
   python raspar.py relatorio                    # contagens + exporta indice.csv
 """
 import argparse, csv, datetime as dt, html, os, re, sqlite3, sys, time
@@ -109,6 +110,21 @@ def indexar(c, faixa):
     print("matérias de educação no índice:", n)
 
 
+def nome_pdf(ed, iso):
+    """AAAA-MM-DD_edicao-NNNN.pdf: ordena por data e dá para buscar por data ou nº da edição."""
+    return f"{iso}_edicao-{(ed or 'sn').zfill(4)}.pdf"
+
+
+def renomear(c):
+    for ed, iso, arq in c.execute("SELECT edicao,data_iso,arquivo FROM edicoes WHERE status='ok'").fetchall():
+        novo = os.path.join(os.path.dirname(arq), nome_pdf(ed, iso))
+        if arq != novo and os.path.exists(arq):
+            os.rename(arq, novo)
+            c.execute("UPDATE edicoes SET arquivo=? WHERE edicao=? AND data_iso=?", (novo, ed, iso))
+            print("renomeado:", os.path.basename(arq), "->", os.path.basename(novo))
+    c.commit()
+
+
 def baixar(c, faixa):
     # 1 PDF por edição; usa o código de uma matéria da edição como referência
     c.execute("""INSERT OR IGNORE INTO edicoes(edicao,data_iso,cod_ref,status)
@@ -121,7 +137,7 @@ def baixar(c, faixa):
     for i, (ed, iso, cod) in enumerate(fila, 1):
         pasta = os.path.join(SAIDA, "edicoes_pdf", iso[:4])
         os.makedirs(pasta, exist_ok=True)
-        arq = os.path.join(pasta, f"edicao-{ed or 'sn'}-{iso}.pdf")
+        arq = os.path.join(pasta, nome_pdf(ed, iso))
         try:
             corpo, h = get(f"{BASE}/download/edicao/{cod}")
             if not corpo.startswith(b"%PDF"):
@@ -155,9 +171,9 @@ def relatorio(c):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["indexar", "baixar", "relatorio"])
+    ap.add_argument("cmd", choices=["indexar", "baixar", "renomear", "relatorio"])
     ap.add_argument("--anos", default=f"{INICIO}-{dt.date.today().year}")
     a = ap.parse_args()
     con = db()
     faixa = list(anos(a.anos))
-    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa), "relatorio": lambda: relatorio(con)}[a.cmd]()
+    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa), "renomear": lambda: renomear(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
