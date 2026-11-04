@@ -1,0 +1,5 @@
+saida/
+PLANO_RASPAGEM.md
+.github/
+__pycache__/
+*.py

@@ -3,3 +3,6 @@ __pycache__/
 *.db-journal
 saida/edicoes_pdf/
 saida/por_tipo/
+
+.vercel
+.env*
