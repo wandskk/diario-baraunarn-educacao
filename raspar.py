@@ -2,6 +2,7 @@
 
 Uso:
   python raspar.py indexar [--anos 2010-2026]   # busca por palavras-chave, ano a ano, grava no SQLite
+  python raspar.py atualizar                    # incremental: só os últimos dias (usado pelo cron diário)
   python raspar.py baixar  [--anos 2010-2026]   # baixa 1 PDF por edição (fila retomável)
   python raspar.py renomear                     # padroniza nomes dos PDFs já baixados
   python raspar.py organizar                    # copia os PDFs para por_tipo/<leis|decretos|portarias|editais|...>/<ano>/
@@ -110,6 +111,38 @@ def indexar(c, faixa):
             time.sleep(PAUSA)
     n = c.execute("SELECT COUNT(*) FROM materias").fetchone()[0]
     print("matérias de educação no índice:", n)
+
+
+def atualizar(c, dias=10):
+    """Incremental: refaz a busca só dos últimos `dias` dias (a partir da última matéria indexada)."""
+    ult = c.execute("SELECT MAX(data_iso) FROM materias").fetchone()[0]
+    hoje = dt.date.today()
+    ini = min(dt.date.fromisoformat(ult) if ult else hoje, hoje) - dt.timedelta(days=dias)
+    antes = c.execute("SELECT COUNT(*) FROM materias").fetchone()[0]
+    for palavra in PALAVRAS:
+        pag, lidos = 1, 0
+        while True:
+            total, itens = busca(palavra, ini.strftime("%Y-%m-%d"), hoje.isoformat(), pag)
+            for it in itens:
+                d = it["data"]
+                iso = f"{d[6:]}-{d[3:5]}-{d[:2]}"
+                r = c.execute("SELECT palavras FROM materias WHERE cod=?", (it["cod"],)).fetchone()
+                if r:
+                    ps = set(filter(None, r[0].split("|"))) | {palavra}
+                    c.execute("UPDATE materias SET palavras=? WHERE cod=?", ("|".join(sorted(ps)), it["cod"]))
+                else:
+                    c.execute("INSERT INTO materias VALUES(?,?,?,?,?,?,?,?)",
+                              (it["cod"], it["titulo"], d, iso, it["edicao"], it["orgao"], int(it["pdf"]), palavra))
+            lidos += len(itens)
+            if not itens or lidos >= total:
+                break
+            pag += 1
+            time.sleep(PAUSA)
+        c.commit()
+        print(f"{palavra}: {total}", flush=True)
+        time.sleep(PAUSA)
+    novas = c.execute("SELECT COUNT(*) FROM materias").fetchone()[0] - antes
+    print(f"desde {ini}: {novas} matérias novas")
 
 
 def chave_ed(ed):
@@ -294,11 +327,11 @@ def relatorio(c):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["indexar", "baixar", "renomear", "organizar", "relatorio"])
+    ap.add_argument("cmd", choices=["atualizar", "indexar", "baixar", "renomear", "organizar", "relatorio"])
     ap.add_argument("--anos", default=f"{INICIO}-{dt.date.today().year}")
     ap.add_argument("--paralelo", type=int, default=4, help="downloads simultâneos (baixar)")
     a = ap.parse_args()
     con = db()
     carregar_rotulos(con)
     faixa = list(anos(a.anos))
-    {"indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa, a.paralelo), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
+    {"atualizar": lambda: atualizar(con), "indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa, a.paralelo), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()

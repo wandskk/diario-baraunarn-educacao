@@ -5,89 +5,156 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Educação no Diário Oficial de Baraúna</title>
 <meta name="description" content="Busca de leis, decretos, portarias, editais e contratos de educação publicados no Diário Oficial de Baraúna/RN, de 2010 a hoje.">
+<link rel="icon" href="logo-sme.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Public+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
+  /* Tokens do portal institucional da SME Baraúna (projeto smebaraunarn) */
   :root {
-    --bg: #f6f7f9; --card: #fff; --txt: #1b2430; --mut: #5b6675; --bord: #dde2e8;
-    --pri: #0b5cad; --pri-txt: #fff; --chip: #eaf1f9;
-    --leis: #6d3fc0; --decretos: #b4570a; --portarias: #0b7a5a; --editais: #b3263e; --contratos_licitacoes: #3a5f8f; --outros: #5b6675;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #11161c; --card: #1a212a; --txt: #e6ebf1; --mut: #98a4b3; --bord: #2c3642;
-            --pri: #5aa2ee; --pri-txt: #0c1117; --chip: #223142;
-            --leis: #b79af0; --decretos: #f0a45f; --portarias: #4fd1a5; --editais: #f08a9b; --contratos_licitacoes: #8fb4e3; --outros: #98a4b3; }
+    --navy: #0b2545; --green: #00a859; --green-h: #008a47; --pri: #005f86; --pri-d: #004664;
+    --bg: #f8fafc; --card: #fff; --txt: #0f172a; --mut: #64748b; --bord: #e2e8f0; --bord2: #cbd5e1;
+    --leis: #5b3fa8; --decretos: #a4560f; --portarias: #00805a; --editais: #b3263e; --contratos_licitacoes: #005f86; --outros: #64748b;
+    --shadow: 0 1px 2px rgb(15 23 42 / .04), 0 1px 3px rgb(15 23 42 / .06);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px 48px; }
-  header { padding: 28px 0 8px; }
-  h1 { font-size: 1.6rem; margin: 0 0 4px; line-height: 1.25; }
-  header p { margin: 0; color: var(--mut); }
-  .busca { display: flex; gap: 8px; margin: 18px 0 12px; }
-  input[type=search], select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--bord); border-radius: 8px; padding: 10px 12px; }
-  input[type=search] { flex: 1; min-width: 0; }
-  :focus-visible { outline: 3px solid var(--pri); outline-offset: 1px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-  .chip { font: inherit; cursor: pointer; border: 1px solid var(--bord); background: var(--card); color: var(--txt); border-radius: 999px; padding: 6px 12px; }
-  .chip b { font-weight: 600; }
-  .chip small { color: var(--mut); margin-left: 4px; }
-  .chip[aria-pressed=true] { background: var(--pri); border-color: var(--pri); color: var(--pri-txt); }
-  .chip[aria-pressed=true] small { color: inherit; opacity: .85; }
-  .filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
-  .filtros label { color: var(--mut); font-size: .9rem; }
-  .status { color: var(--mut); margin: 12px 0; font-size: .95rem; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--txt); font: 16px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--pri); }
+  :focus-visible { outline: 3px solid var(--pri); outline-offset: 2px; }
+
+  .gov { background: var(--navy); color: #e2e8f0; font-size: .75rem; padding: 6px 0; }
+  .gov .wrap { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+  .gov strong { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: .02em; }
+  .gov strong::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
+  .gov a { color: #6ee7b7; text-decoration: none; font-weight: 500; }
+  .gov a:hover { color: #fff; }
+
+  .topo { background: #fff; border-bottom: 1px solid var(--bord); box-shadow: var(--shadow); }
+  .topo .wrap { display: flex; align-items: center; gap: 14px; padding-top: 12px; padding-bottom: 12px; }
+  .logo { width: 56px; height: 56px; border: 1px solid var(--bord); border-radius: 10px; background: #f1f5f9; padding: 4px; object-fit: contain; flex: none; }
+  .ident { border-left: 1px solid var(--bord); padding-left: 14px; line-height: 1.25; }
+  .ident b { display: block; font: 800 1.1rem "Public Sans", Inter, sans-serif; color: var(--navy); letter-spacing: -.01em; }
+  .ident span { font-size: .75rem; color: var(--mut); font-weight: 500; letter-spacing: .02em; }
+  .topo nav { margin-left: auto; display: flex; gap: 22px; font-size: .88rem; font-weight: 600; }
+  .topo nav a { color: #334155; text-decoration: none; padding: 4px 0; }
+  .topo nav a:hover { color: var(--pri); }
+
+  .hero { background: linear-gradient(to bottom, #f1f5f9, #fff 60%, rgb(248 250 252 / .5)); border-bottom: 1px solid var(--bord); padding: 44px 0 34px; }
+  .selo { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--bord); border-radius: 999px; padding: 6px 14px; box-shadow: var(--shadow); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--navy); }
+  .selo::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+  h1 { font: 800 clamp(1.75rem, 4.2vw, 2.7rem)/1.15 "Public Sans", Inter, sans-serif; color: var(--navy); letter-spacing: -.02em; margin: 18px 0 12px; max-width: 22ch; }
+  h1 em { font-style: normal; color: var(--pri); text-decoration: underline; text-decoration-color: rgb(0 168 89 / .6); text-decoration-thickness: 3px; text-underline-offset: 8px; }
+  .lead { margin: 0 0 22px; color: #475569; font-size: 1.05rem; max-width: 60ch; }
+  .busca { display: flex; max-width: 640px; background: #fff; border: 1px solid var(--bord2); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
+  .busca:focus-within { border-color: var(--pri); box-shadow: 0 0 0 3px rgb(0 95 134 / .18); }
+  .busca input { flex: 1; min-width: 0; border: 0; background: transparent; font: inherit; font-size: .95rem; padding: 14px 16px; color: var(--txt); }
+  .busca input:focus-visible { outline: none; }
+  .busca button { border: 0; background: var(--navy); color: #fff; font: 600 .85rem Inter, sans-serif; padding: 0 24px; cursor: pointer; transition: background .15s; }
+  .busca button:hover { background: var(--pri); }
+
+  main { padding: 26px 0 8px; }
+  .painel { background: var(--card); border: 1px solid var(--bord); border-radius: 14px; box-shadow: var(--shadow); padding: 16px 18px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: 600 .85rem Inter, sans-serif; cursor: pointer; border: 1px solid var(--bord2); background: #fff; color: #334155; border-radius: 999px; padding: 6px 14px; transition: all .15s; }
+  .chip:hover { border-color: var(--pri); color: var(--pri); }
+  .chip small { color: var(--mut); margin-left: 6px; font-weight: 500; }
+  .chip[aria-pressed=true] { background: var(--navy); border-color: var(--navy); color: #fff; }
+  .chip[aria-pressed=true] small { color: #cbd5e1; }
+  .filtros { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bord); }
+  .filtros label { color: var(--mut); font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  select { font: inherit; font-size: .88rem; color: var(--txt); background: #fff; border: 1px solid var(--bord2); border-radius: 8px; padding: 7px 10px; max-width: 100%; }
+  .status { color: var(--mut); margin: 20px 2px 10px; font-size: .9rem; font-weight: 500; }
+
   ul.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  li.doc { background: var(--card); border: 1px solid var(--bord); border-radius: 10px; padding: 12px 14px; }
-  .tag { display: inline-block; font-size: .78rem; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 6px; padding: 1px 7px; margin-bottom: 6px; }
-  .doc h2 { font-size: 1rem; margin: 0 0 4px; line-height: 1.4; font-weight: 600; }
-  .meta { color: var(--mut); font-size: .88rem; }
-  .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-  .acoes a { text-decoration: none; border-radius: 8px; padding: 6px 12px; font-size: .92rem; border: 1px solid var(--pri); color: var(--pri); }
-  .acoes a.prim { background: var(--pri); color: var(--pri-txt); }
-  .pag { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 18px; }
-  .pag button { font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 8px; border: 1px solid var(--bord); background: var(--card); color: var(--txt); }
+  li.doc { background: var(--card); border: 1px solid var(--bord); border-left: 4px solid var(--tc); border-radius: 12px; padding: 14px 18px; box-shadow: var(--shadow); transition: box-shadow .15s; }
+  li.doc:hover { box-shadow: 0 4px 14px rgb(15 23 42 / .08); }
+  .tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tc); background: color-mix(in srgb, var(--tc) 10%, white); border-radius: 6px; padding: 2px 8px; margin-bottom: 8px; }
+  .doc h2 { font: 700 1rem/1.4 "Public Sans", Inter, sans-serif; color: var(--navy); margin: 0 0 4px; }
+  .meta { color: var(--mut); font-size: .84rem; }
+  .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .acoes a { text-decoration: none; border-radius: 8px; padding: 7px 14px; font-size: .85rem; font-weight: 600; border: 1px solid var(--bord2); color: var(--navy); background: #fff; transition: all .15s; }
+  .acoes a:hover { border-color: var(--pri); color: var(--pri); }
+  .acoes a.prim { background: var(--green); border-color: var(--green); color: #fff; }
+  .acoes a.prim:hover { background: var(--green-h); border-color: var(--green-h); color: #fff; }
+  .pag { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 22px; font-size: .9rem; color: var(--mut); }
+  .pag button { font: 600 .85rem Inter, sans-serif; cursor: pointer; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--bord2); background: #fff; color: var(--navy); }
+  .pag button:hover:not(:disabled) { border-color: var(--pri); color: var(--pri); }
   .pag button:disabled { opacity: .45; cursor: default; }
-  mark { background: #ffe58a; color: #1b2430; border-radius: 3px; padding: 0 1px; }
-  footer { margin-top: 36px; color: var(--mut); font-size: .85rem; border-top: 1px solid var(--bord); padding-top: 14px; }
-  footer a { color: var(--pri); }
-  @media (max-width: 520px) { .busca { flex-direction: column; } h1 { font-size: 1.35rem; } }
+  mark { background: #fde68a; color: inherit; border-radius: 3px; padding: 0 1px; }
+
+  footer { margin-top: 48px; background: #0f172a; color: #cbd5e1; padding: 32px 0 26px; font-size: .84rem; border-top: 1px solid #1e293b; }
+  footer p { margin: 0 0 8px; max-width: 80ch; }
+  footer b { color: #fff; font-family: "Public Sans", sans-serif; }
+  footer a { color: #6ee7b7; }
+
+  @media (max-width: 760px) { .topo nav { display: none; } .gov a span { display: none; } }
+  @media (max-width: 520px) { .busca button { padding: 0 16px; } .ident b { font-size: 1rem; } .logo { width: 48px; height: 48px; } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } html { scroll-behavior: auto; } }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>Educação no Diário Oficial de Baraúna/RN</h1>
-    <p id="resumo">Carregando índice…</p>
-  </header>
+<div class="gov">
+  <div class="wrap">
+    <strong>Prefeitura Municipal de Baraúna • RN</strong>
+    <a href="https://www.diariomunicipal.com.br/femurn/" rel="noopener">Diário Oficial dos Municípios<span> (FEMURN)</span> ↗</a>
+  </div>
+</div>
+<header class="topo">
+  <div class="wrap">
+    <img class="logo" src="logo-sme.webp" alt="Brasão e logotipo da SME Baraúna">
+    <div class="ident"><b>Secretaria de Educação</b><span>Município de Baraúna / RN</span></div>
+    <nav aria-label="Principal">
+      <a href="https://smebaraunarn.com">Portal da SME</a>
+      <a href="#main">Publicações</a>
+      <a href="#rodape">Sobre a fonte</a>
+    </nav>
+  </div>
+</header>
 
-  <form class="busca" role="search" onsubmit="return false">
-    <input id="q" type="search" placeholder="Buscar por título, número, órgão… (ex.: portaria professor 2023)" aria-label="Buscar documentos" autocomplete="off">
-  </form>
+<section class="hero">
+  <div class="wrap">
+    <span class="selo">Transparência • Diário Oficial</span>
+    <h1>A educação de Baraúna no <em>Diário Oficial</em></h1>
+    <p class="lead" id="resumo">Carregando índice…</p>
+    <form class="busca" role="search" onsubmit="return false">
+      <input id="q" type="search" placeholder="Buscar por título, número, órgão… (ex.: portaria professor 2023)" aria-label="Buscar documentos" autocomplete="off">
+      <button type="button" onclick="document.getElementById('q').focus()">Buscar</button>
+    </form>
+  </div>
+</section>
 
-  <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
-
-  <div class="filtros">
-    <label for="ano">Ano</label>
-    <select id="ano"><option value="">Todos</option></select>
-    <label for="orgao">Órgão</label>
-    <select id="orgao"><option value="">Todos</option></select>
-    <label for="ordem">Ordenar</label>
-    <select id="ordem">
-      <option value="recente">Mais recentes</option>
-      <option value="antiga">Mais antigos</option>
-    </select>
+<main class="wrap" id="main">
+  <div class="painel">
+    <div class="chips" id="chips" role="group" aria-label="Filtrar por tipo"></div>
+    <div class="filtros">
+      <label for="ano">Ano</label>
+      <select id="ano"><option value="">Todos</option></select>
+      <label for="orgao">Órgão</label>
+      <select id="orgao"><option value="">Todos</option></select>
+      <label for="ordem">Ordenar</label>
+      <select id="ordem">
+        <option value="recente">Mais recentes</option>
+        <option value="antiga">Mais antigos</option>
+      </select>
+    </div>
   </div>
 
   <p class="status" id="status" aria-live="polite"></p>
   <ul class="lista" id="lista"></ul>
   <nav class="pag" id="pag" aria-label="Paginação"></nav>
+</main>
 
-  <footer>
-    Fonte: <a href="https://www.diariomunicipal.com.br/femurn/" rel="noopener">Diário Oficial dos Municípios (FEMURN)</a>, entidade Baraúna/RN.
+<footer id="rodape">
+  <div class="wrap">
+    <p><b>Sobre os dados</b></p>
+    <p>Fonte: <a href="https://www.diariomunicipal.com.br/femurn/" rel="noopener">Diário Oficial dos Municípios (FEMURN)</a>, entidade Baraúna/RN.
     Os documentos foram selecionados por palavras-chave de educação (educação, escola, FUNDEB, professor, merenda, creche e similares);
-    o tipo é identificado pelo título. Os PDFs são edições inteiras do Diário, abertas diretamente no site oficial.
-    <span id="gerado"></span>
-  </footer>
-</div>
+    o tipo é identificado pelo título. Os PDFs são edições inteiras do Diário, abertas diretamente no site oficial.</p>
+    <p id="gerado"></p>
+  </div>
+</footer>
 
 <script>
 const POR_PAGINA = 40;
@@ -154,8 +221,8 @@ function render() {
 
   el("status").textContent = total ? `${total.toLocaleString("pt-BR")} documento${total > 1 ? "s" : ""} encontrado${total > 1 ? "s" : ""}` : "Nenhum documento encontrado. Tente menos palavras ou limpe os filtros.";
   el("lista").innerHTML = fatia.map(d => `
-    <li class="doc">
-      <span class="tag" style="color:var(--${d.k})">${esc(TIPOS[d.k] || d.k)}</span>
+    <li class="doc" style="--tc:var(--${d.k})">
+      <span class="tag">${esc(TIPOS[d.k] || d.k)}</span>
       <h2>${destacar(d.t, termos)}</h2>
       <div class="meta">${dataBR(d.d)} · Edição ${esc(d.e)} · ${esc(d.o)}</div>
       <div class="acoes">

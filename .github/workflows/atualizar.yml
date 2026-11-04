@@ -1,0 +1,30 @@
+name: Atualizar índice diário
+
+on:
+  schedule:
+    - cron: "0 9 * * *"   # 06:00 em Brasília, todos os dias
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  atualizar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Buscar publicações novas
+        run: python raspar.py atualizar
+      - name: Regerar site
+        run: python gerar_site.py
+      - name: Commit e push (dispara o deploy na Vercel)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add saida/indice.db docs/dados.json
+          if git diff --cached --quiet; then echo "sem novidades"; exit 0; fi
+          git commit -m "Atualização diária do índice ($(date -u +%F))"
+          git push
