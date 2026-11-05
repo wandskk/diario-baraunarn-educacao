@@ -3,6 +3,7 @@
 Uso:
   python raspar.py indexar [--anos 2010-2026]   # busca por palavras-chave, ano a ano, grava no SQLite
   python raspar.py atualizar                    # incremental: só os últimos dias (usado pelo cron diário)
+  python raspar.py textos                       # baixa o texto de cada matéria (base da classificação de relevância)
   python raspar.py baixar  [--anos 2010-2026]   # baixa 1 PDF por edição (fila retomável)
   python raspar.py renomear                     # padroniza nomes dos PDFs já baixados
   python raspar.py organizar                    # copia os PDFs para por_tipo/<leis|decretos|portarias|editais|...>/<ano>/
@@ -71,7 +72,18 @@ def db():
     CREATE TABLE IF NOT EXISTS edicoes(edicao TEXT, data_iso TEXT, cod_ref TEXT, arquivo TEXT, status TEXT, erro TEXT,
         PRIMARY KEY(edicao,data_iso));
     """)
+    cols = [r[1] for r in c.execute("PRAGMA table_info(materias)")]
+    if "relevante" not in cols:
+        c.execute("ALTER TABLE materias ADD COLUMN relevante INTEGER")
+        c.execute("ALTER TABLE materias ADD COLUMN motivo TEXT")
     return c
+
+
+def db_textos():
+    """Textos completos das matérias: banco à parte e fora do git (só serve para classificar)."""
+    t = sqlite3.connect(os.path.join(SAIDA, "textos.db"))
+    t.execute("CREATE TABLE IF NOT EXISTS textos(cod TEXT PRIMARY KEY, texto TEXT)")
+    return t
 
 
 def anos(arg):
@@ -143,6 +155,46 @@ def atualizar(c, dias=10):
         time.sleep(PAUSA)
     novas = c.execute("SELECT COUNT(*) FROM materias").fetchone()[0] - antes
     print(f"desde {ini}: {novas} matérias novas")
+
+
+def texto_materia(cod):
+    """Texto limpo do corpo da matéria (da div #materia até 'Publicado por')."""
+    corpo, _ = get(f"{BASE}/materia/{cod}")
+    h = corpo.decode("utf-8", "replace")
+    i = h.find('id="materia"')
+    if i < 0:
+        raise ValueError("matéria sem corpo")
+    t = re.sub(r"<script.*?</script>|<style.*?</style>", " ", h[i:], flags=re.S)
+    t = html.unescape(re.sub(r"<[^>]+>", " ", t)).replace(" ", " ")
+    t = re.sub(r"\s+", " ", t).strip()
+    return t.split(" Publicado por:")[0]
+
+
+def textos(c, paralelo=4):
+    """Baixa o texto das matérias ainda não classificadas (base da classificação de relevância)."""
+    t = db_textos()
+    ja = {r[0] for r in t.execute("SELECT cod FROM textos")}
+    fila = [r[0] for r in c.execute("SELECT cod FROM materias WHERE relevante IS NULL ORDER BY data_iso DESC") if r[0] not in ja]
+    print(f"matérias sem texto: {len(fila)}", flush=True)
+
+    def um(cod):
+        try:
+            r = texto_materia(cod)
+            time.sleep(PAUSA)
+            return cod, r, None
+        except Exception as e:
+            return cod, None, str(e)
+
+    with ThreadPoolExecutor(max_workers=paralelo) as ex:
+        for i, (cod, tx, erro) in enumerate(ex.map(um, fila), 1):
+            if erro:
+                print(f"[{i}/{len(fila)}] ERRO {cod}: {erro}", flush=True)
+                continue
+            t.execute("INSERT OR REPLACE INTO textos VALUES(?,?)", (cod, tx))
+            if i % 100 == 0:
+                t.commit()
+                print(f"[{i}/{len(fila)}]", flush=True)
+    t.commit()
 
 
 def chave_ed(ed):
@@ -327,11 +379,11 @@ def relatorio(c):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["atualizar", "indexar", "baixar", "renomear", "organizar", "relatorio"])
+    ap.add_argument("cmd", choices=["classificar", "textos", "atualizar", "indexar", "baixar", "renomear", "organizar", "relatorio"])
     ap.add_argument("--anos", default=f"{INICIO}-{dt.date.today().year}")
     ap.add_argument("--paralelo", type=int, default=4, help="downloads simultâneos (baixar)")
     a = ap.parse_args()
     con = db()
     carregar_rotulos(con)
     faixa = list(anos(a.anos))
-    {"atualizar": lambda: atualizar(con), "indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa, a.paralelo), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()
+    {"classificar": lambda: __import__("relevancia").classificar(con), "textos": lambda: textos(con, a.paralelo), "atualizar": lambda: atualizar(con), "indexar": lambda: indexar(con, faixa), "baixar": lambda: baixar(con, faixa, a.paralelo), "renomear": lambda: renomear(con), "organizar": lambda: organizar(con), "relatorio": lambda: relatorio(con)}[a.cmd]()

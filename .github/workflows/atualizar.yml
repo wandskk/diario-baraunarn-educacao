@@ -18,6 +18,10 @@ jobs:
           python-version: "3.12"
       - name: Buscar publicações novas
         run: python raspar.py atualizar
+      - name: Ler e classificar as matérias novas (educação de fato x só menção)
+        run: |
+          python raspar.py textos
+          python raspar.py classificar
       - name: Regerar site
         run: python gerar_site.py
       - name: Commit e push (dispara o deploy na Vercel)

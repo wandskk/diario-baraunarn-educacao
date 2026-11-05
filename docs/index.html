@@ -65,6 +65,9 @@
   .filtros { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--bord); }
   .filtros label { color: var(--mut); font-size: .78rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
   select { font: inherit; font-size: .88rem; color: var(--txt); background: #fff; border: 1px solid var(--bord2); border-radius: 8px; padding: 7px 10px; max-width: 100%; }
+  .mencoes { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: .88rem; color: #334155; cursor: pointer; }
+  .mencoes input { width: 16px; height: 16px; accent-color: var(--pri); }
+  .mencoes span { color: var(--mut); }
   .status { color: var(--mut); margin: 20px 2px 10px; font-size: .9rem; font-weight: 500; }
 
   ul.lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -139,6 +142,7 @@
         <option value="antiga">Mais antigos</option>
       </select>
     </div>
+    <label class="mencoes"><input type="checkbox" id="todos"> Incluir documentos que apenas citam educação <span id="nmenc"></span></label>
   </div>
 
   <p class="status" id="status" aria-live="polite"></p>
@@ -151,7 +155,7 @@
     <p><b>Sobre os dados</b></p>
     <p>Fonte: <a href="https://www.diariomunicipal.com.br/femurn/" rel="noopener">Diário Oficial dos Municípios (FEMURN)</a>, entidade Baraúna/RN.
     Os documentos foram selecionados por palavras-chave de educação (educação, escola, FUNDEB, professor, merenda, creche e similares);
-    o tipo é identificado pelo título. Os PDFs são edições inteiras do Diário, abertas diretamente no site oficial.</p>
+    cada matéria é lida e classificada: aparecem por padrão os documentos que tratam de educação de fato (emitidos pela área de educação ou com o tema no título, na ementa ou no corpo); os que apenas citam o tema ficam ocultos e podem ser incluídos no filtro. O tipo é identificado pelo título. Os PDFs são edições inteiras do Diário, abertas diretamente no site oficial.</p>
     <p id="gerado"></p>
   </div>
 </footer>
@@ -163,17 +167,19 @@ const norm = s => (s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase
 const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const el = id => document.getElementById(id);
 
-let DOCS = [], TIPOS = {}, estado = { q: "", tipo: "", ano: "", orgao: "", ordem: "recente", pag: 1 };
+let DOCS = [], TIPOS = {}, estado = { q: "", tipo: "", ano: "", orgao: "", ordem: "recente", todos: false, pag: 1 };
 
 function lerHash() {
   const p = new URLSearchParams(location.hash.slice(1));
   for (const k of ["q", "tipo", "ano", "orgao", "ordem"]) if (p.has(k)) estado[k] = p.get(k);
+  estado.todos = p.get("todos") === "1";
   estado.pag = parseInt(p.get("pag") || "1", 10) || 1;
 }
 function gravarHash() {
   const p = new URLSearchParams();
   for (const k of ["q", "tipo", "ano", "orgao"]) if (estado[k]) p.set(k, estado[k]);
   if (estado.ordem !== "recente") p.set("ordem", estado.ordem);
+  if (estado.todos) p.set("todos", "1");
   if (estado.pag > 1) p.set("pag", estado.pag);
   history.replaceState(null, "", p.toString() ? "#" + p : location.pathname);
 }
@@ -183,6 +189,7 @@ function filtrar(ignorarTipo) {
   const termos = norm(estado.q).split(/\s+/).filter(Boolean);
   return DOCS.filter(d =>
     (ignorarTipo || !estado.tipo || d.k === estado.tipo) &&
+    (estado.todos || d.r) &&
     (!estado.ano || d.d.startsWith(estado.ano)) &&
     (!estado.orgao || d.o === estado.orgao) &&
     termos.every(t => d._n.includes(t)));
@@ -215,6 +222,8 @@ function render() {
 
   const res = base.filter(d => !estado.tipo || d.k === estado.tipo);
   res.sort((a, b) => (estado.ordem === "recente" ? b.d.localeCompare(a.d) : a.d.localeCompare(b.d)) || a.c.localeCompare(b.c));
+  const ocultos = DOCS.filter(d => !d.r).length;
+  el("nmenc").textContent = ocultos ? `(${ocultos.toLocaleString("pt-BR")})` : "";
   const total = res.length, paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
   estado.pag = Math.min(Math.max(1, estado.pag), paginas);
   const fatia = res.slice((estado.pag - 1) * POR_PAGINA, estado.pag * POR_PAGINA);
@@ -243,13 +252,14 @@ function iniciar(json) {
   const orgaos = [...new Set(DOCS.map(d => d.o))].sort((a, b) => a.localeCompare(b, "pt"));
   el("orgao").innerHTML += orgaos.map(o => `<option>${esc(o)}</option>`).join("");
   const menor = DOCS.reduce((m, d) => d.d < m ? d.d : m, "9999"), maior = DOCS.reduce((m, d) => d.d > m ? d.d : m, "0");
-  el("resumo").textContent = `${DOCS.length.toLocaleString("pt-BR")} documentos de ${dataBR(menor).slice(3)} a ${dataBR(maior).slice(3)} · leis, decretos, portarias, editais, contratos e licitações`;
+  el("resumo").textContent = `${DOCS.filter(d => d.r).length.toLocaleString("pt-BR")} documentos de ${dataBR(menor).slice(3)} a ${dataBR(maior).slice(3)} · leis, decretos, portarias, editais, contratos e licitações`;
   el("gerado").textContent = "Índice atualizado em " + dataBR(json.gerado) + ".";
   lerHash();
-  el("q").value = estado.q; el("ano").value = estado.ano; el("orgao").value = estado.orgao; el("ordem").value = estado.ordem;
+  el("q").value = estado.q; el("todos").checked = estado.todos; el("ano").value = estado.ano; el("orgao").value = estado.orgao; el("ordem").value = estado.ordem;
   render();
 }
 
+el("todos").addEventListener("change", e => { estado.todos = e.target.checked; estado.pag = 1; render(); });
 el("q").addEventListener("input", e => { estado.q = e.target.value; estado.pag = 1; render(); });
 for (const [id, k] of [["ano", "ano"], ["orgao", "orgao"], ["ordem", "ordem"]])
   el(id).addEventListener("change", e => { estado[k] = e.target.value; estado.pag = 1; render(); });

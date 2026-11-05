@@ -6,3 +6,4 @@ saida/por_tipo/
 
 .vercel
 .env*
+saida/textos.db
