@@ -76,6 +76,8 @@ def db():
     if "relevante" not in cols:
         c.execute("ALTER TABLE materias ADD COLUMN relevante INTEGER")
         c.execute("ALTER TABLE materias ADD COLUMN motivo TEXT")
+    if "trecho" not in cols:
+        c.execute("ALTER TABLE materias ADD COLUMN trecho TEXT")
     return c
 
 

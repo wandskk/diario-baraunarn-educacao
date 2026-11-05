@@ -9,11 +9,11 @@ ROTULOS = {"leis": "Lei", "decretos": "Decreto", "portarias": "Portaria", "edita
 def main():
     c = sqlite3.connect(os.path.join(SAIDA, "indice.db"))
     docs = []
-    for cod, tit, iso, ed, org, pal, rel in c.execute(
-            "SELECT cod,titulo,data_iso,edicao,orgao,palavras,relevante FROM materias ORDER BY data_iso DESC, cod"):
+    for cod, tit, iso, ed, org, pal, rel, tre in c.execute(
+            "SELECT cod,titulo,data_iso,edicao,orgao,palavras,relevante,trecho FROM materias ORDER BY data_iso DESC, cod"):
         t = tipo_de(tit)
         docs.append({"c": cod, "t": re.sub(r"\s+", " ", tit).strip(), "d": iso, "e": ed, "o": org, "p": pal,
-                     "k": t, "r": 0 if rel == 0 else 1})
+                     "k": t, "r": 0 if rel == 0 else 1, "x": tre or ""})
     saida = os.path.join(os.path.dirname(os.path.abspath(__file__)), "docs", "dados.json")
     os.makedirs(os.path.dirname(saida), exist_ok=True)
     with open(saida, "w", encoding="utf-8") as f:

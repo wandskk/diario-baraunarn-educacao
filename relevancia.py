@@ -60,19 +60,30 @@ def avaliar(titulo, texto):
     return 0, "só menciona"
 
 
+def trecho(titulo, orgao, texto, n=1000):
+    """Começo do corpo da matéria (sem órgão e título repetidos): ementa e primeiros artigos.
+    É o que a busca do site consulta, para achar nomes, objetos e números dentro do documento."""
+    x = limpar(texto)
+    for cab in (orgao, titulo):
+        if cab and x.lower().startswith(cab.strip().lower()):
+            x = x[len(cab.strip()):].lstrip()
+    return x[:n]
+
+
 def classificar(c, tudo=False, amostra=0):
     """Classifica as matérias com texto disponível (textos.db) que ainda não têm relevância."""
     from raspar import db_textos
     t = db_textos()
-    filtro = "" if tudo else "WHERE relevante IS NULL"
-    pend = [r for r in c.execute(f"SELECT cod,titulo FROM materias {filtro}")]
+    filtro = "" if tudo else "WHERE relevante IS NULL OR trecho IS NULL"
+    pend = [r for r in c.execute(f"SELECT cod,titulo,orgao FROM materias {filtro}")]
     n = 0
-    for cod, tit in pend:
+    for cod, tit, orgao in pend:
         row = t.execute("SELECT texto FROM textos WHERE cod=?", (cod,)).fetchone()
         if not row:
             continue
         r, motivo = avaliar(tit, row[0])
-        c.execute("UPDATE materias SET relevante=?,motivo=? WHERE cod=?", (r, motivo, cod))
+        c.execute("UPDATE materias SET relevante=?,motivo=?,trecho=? WHERE cod=?",
+                  (r, motivo, trecho(tit, orgao, row[0]), cod))
         n += 1
     c.commit()
     print("classificadas agora:", n)

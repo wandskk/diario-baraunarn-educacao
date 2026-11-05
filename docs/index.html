@@ -75,6 +75,7 @@
   li.doc:hover { box-shadow: 0 4px 14px rgb(15 23 42 / .08); }
   .tag { display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--tc); background: color-mix(in srgb, var(--tc) 10%, white); border-radius: 6px; padding: 2px 8px; margin-bottom: 8px; }
   .doc h2 { font: 700 1rem/1.4 "Public Sans", Inter, sans-serif; color: var(--navy); margin: 0 0 4px; }
+  .ementa { margin: 6px 0 2px; color: #475569; font-size: .9rem; line-height: 1.5; }
   .meta { color: var(--mut); font-size: .84rem; }
   .acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
   .acoes a { text-decoration: none; border-radius: 8px; padding: 7px 14px; font-size: .85rem; font-weight: 600; border: 1px solid var(--bord2); color: var(--navy); background: #fff; transition: all .15s; }
@@ -122,7 +123,7 @@
     <h1>A educação de Baraúna no <em>Diário Oficial</em></h1>
     <p class="lead" id="resumo">Carregando índice…</p>
     <form class="busca" role="search" onsubmit="return false">
-      <input id="q" type="search" placeholder="Buscar por título, número, órgão… (ex.: portaria professor 2023)" aria-label="Buscar documentos" autocomplete="off">
+      <input id="q" type="search" placeholder="Buscar por título, nome, número, assunto… (ex.: nomeação coordenador 2026)" aria-label="Buscar documentos" autocomplete="off">
       <button type="button" onclick="document.getElementById('q').focus()">Buscar</button>
     </form>
   </div>
@@ -211,6 +212,19 @@ function destacar(texto, termos) {
   return r + esc(texto.slice(pos));
 }
 
+// trecho do texto mostrado no card: o começo do documento ou, numa busca, o ponto onde o termo aparece
+function trecho(d, termos) {
+  if (!d.x) return "";
+  let ini = 0;
+  if (termos.length && d._x.length === d.x.length) {
+    const hit = termos.map(t => d._x.indexOf(t)).filter(i => i >= 0).sort((a, b) => a - b)[0];
+    if (hit !== undefined) ini = Math.max(0, hit - 90);
+  }
+  const fatia = d.x.slice(ini, ini + 260);
+  const marcado = termos.length && d._x.length === d.x.length ? destacar(fatia, termos) : esc(fatia);
+  return (ini > 0 ? "… " : "") + marcado + (ini + 260 < d.x.length ? " …" : "");
+}
+
 function render() {
   const termos = norm(estado.q).split(/\s+/).filter(Boolean);
   const base = filtrar(true);
@@ -233,6 +247,7 @@ function render() {
     <li class="doc" style="--tc:var(--${d.k})">
       <span class="tag">${esc(TIPOS[d.k] || d.k)}</span>
       <h2>${destacar(d.t, termos)}</h2>
+      ${d.x ? `<p class="ementa">${trecho(d, termos)}</p>` : ""}
       <div class="meta">${dataBR(d.d)} · Edição ${esc(d.e)} · ${esc(d.o)}</div>
       <div class="acoes">
         <a class="prim" href="${BASE}/download/edicao/${d.c}" target="_blank" rel="noopener">Baixar PDF da edição</a>
@@ -246,7 +261,10 @@ function render() {
 
 function iniciar(json) {
   TIPOS = json.tipos; DOCS = json.docs;
-  DOCS.forEach(d => d._n = norm(d.t + " " + d.o + " " + d.e + " " + d.d + " " + dataBR(d.d) + " " + TIPOS[d.k]));
+  DOCS.forEach(d => {
+    d._n = norm(d.t + " " + d.o + " " + d.e + " " + d.d + " " + dataBR(d.d) + " " + TIPOS[d.k] + " " + d.x);
+    d._x = norm(d.x);
+  });
   const anos = [...new Set(DOCS.map(d => d.d.slice(0, 4)))].sort().reverse();
   el("ano").innerHTML += anos.map(a => `<option>${a}</option>`).join("");
   const orgaos = [...new Set(DOCS.map(d => d.o))].sort((a, b) => a.localeCompare(b, "pt"));
